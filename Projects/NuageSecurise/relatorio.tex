@@ -1,0 +1,279 @@
+
+\documentclass[a4paper,12pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[brazil]{babel}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{hyperref}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{caption}
+\usepackage{float}
+\usepackage{geometry}
+\usepackage{url}
+\usepackage{lmodern}
+\geometry{a4paper, margin=2.5cm}
+
+\title{Desafio de Criptografia Simétrica: Implementação do DES e\\
+Mecanismo de Troca de Chaves Diffie-Hellman}
+\author{
+    Angélica Rita de Araújo\textsuperscript{1}  Ananda Guedes do Ó\textsuperscript{2} \\
+    \textsuperscript{1}Instituto Federal da Paraíba (IFPB) -- João Pessoa -- PB -- Brasil.\\
+    \textsuperscript{2}Instituto Federal da Paraíba (IFPB) -- João Pessoa -- PB -- Brasil.
+}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+\textit{Este artigo apresenta a implementação do algoritmo DES (Data Encryption Standard) e o mecanismo de troca de chaves Diffie-Hellman utilizando a linguagem Python, com o intuito de explorar o funcionamento desse algoritmo de criptografia em conjunto com as chaves que serão providas do mecanismo, a partir de uma estrutura de cliente/servidor. De modo a garantir a transmissão de mensagens, esse processo irá utilizar a conexão via sockets pelo protocolo TCP/IP e um número de porta definido. Ao estabelecer a conexão, ocorre a geração de chaves privadas e públicas, bem como uma chave compartilhada que será utilizada para a criptografia da mensagem e sua descriptografia.}
+\end{abstract}
+
+\begin{abstract}
+\textit{This article presents the implementation of the DES (Data Encryption Standard) algorithm and the Diffie-Hellman key exchange mechanism using the Python programming language. The objective is to explore how this encryption algorithm functions in conjunction with the keys provided by the mechanism, within a client/server structure. To ensure message transmission, this process will use socket connections via the TCP/IP protocol and a predefined port number. Upon establishing the connection, private and public keys are generated, along with a shared key that will be used for message encryption and decryption.}
+\end{abstract}
+
+
+\section{Informações Gerais}
+Este artigo tem como objetivo resolver e documentar um desafio proposto pela disciplina de Segurança de Dados no curso de Sistemas para Internet do Instituto Federal da Paraíba. O trabalho busca proporcionar uma experiência prática na implementação do Data Encryption Standard (DES) e do algoritmo de troca de chaves Diffie-Hellman, utilizando a linguagem Python, sem o uso de bibliotecas auxiliares.
+
+\section{Fundamentos Teóricos}
+
+\subsection{Data Encryption Standard (DES)}
+
+O \textbf{Data Encryption Standard (DES)} foi desenvolvido em 1975 por pesquisadores da IBM, liderados por Horst Feistel, Don Coppersmith e outros, em colaboração com a \textbf{National Security Agency (NSA)} dos Estados Unidos. O algoritmo foi baseado no projeto original conhecido como \textit{Lucifer}, criado na IBM e padronizado pelo \textbf{National Institute of Standards and Technology (NIST)}, então chamado de \textbf{National Bureau of Standards (NBS)}. Ele utiliza uma estrutura de ciframento em bloco, empregando a \textbf{rede de Feistel} como base teórica.
+
+A \textbf{cifra de Feistel} é um modelo para cifras de bloco baseado na ideia de \textit{cifras de produto}, que aplicam múltiplas cifras simples em sequência para aumentar a segurança. Esse modelo permite criar uma cifra de bloco eficiente com um número menor de transformações possíveis do que uma cifra de bloco ideal.
+
+A estrutura proposta por Feistel segue o conceito de \textbf{substituições} e \textbf{permutações}, onde:
+
+\begin{itemize}
+    \item Na \textbf{substituição}, elementos do texto claro são substituídos por elementos do texto cifrado.
+    \item Na \textbf{permutação}, a ordem dos elementos do texto claro é reorganizada sem alterar seus valores.
+\end{itemize}
+
+Essa estrutura opera dividindo o bloco de entrada em duas metades e passando-as por múltiplas rodadas de transformação. Cada rodada utiliza uma \textbf{subchave}, derivada da chave principal, e aplica uma \textbf{função F} à metade direita, combinando seu resultado com a metade esquerda por meio de uma operação \textbf{XOR}. Em seguida, as metades são trocadas, garantindo maior \textbf{difusão} e \textbf{confusão} dos dados. O número de rodadas, o tamanho do bloco e da chave, o algoritmo de geração das subchaves e a função F são \textbf{parâmetros críticos para a segurança do sistema} \cite{stallings2014}.
+
+O \textbf{DES} implementa essa estrutura usando \textbf{blocos de 64 bits}, \textbf{chaves de 56 bits} e \textbf{16 rodadas}, tornando-se um dos exemplos mais conhecidos da aplicação do modelo de Feistel. Ele equilibra segurança e eficiência, embora suas características tenham sido superadas por algoritmos modernos.
+
+Dessa forma, o DES foi amplamente adotado como padrão de criptografia pelo governo dos EUA em \textbf{1977}, mas foi \textbf{substituído} posteriormente devido à sua \textbf{vulnerabilidade frente à crescente capacidade computacional} para ataques de força bruta.
+
+\begin{quote}
+    \textsuperscript{1} UFRGS. \textit{DES – Data Encryption Standard}. Disponível em: \url{http://penta2.ufrgs.br/gere96/segur2/des.htm}. Acesso em: 2 fev. 2025.
+\end{quote}
+
+
+\subsection{Troca de Chaves Diffie-Hellman}
+Stallings (2014, p. 226) afirma que ``o primeiro algoritmo de chave pública apareceu no artigo inicial de Diffie e Hellman que definia a criptografia de chave pública, e geralmente é chamado de troca de chaves Diffie-Hellman. Diversos produtos comerciais empregam essa técnica de troca de chaves''. Ele é um protocolo que permite que duas partes, sem conhecimento prévio uma da outra, estabeleçam conjuntamente uma chave secreta compartilhada sobre um canal de comunicação público e inseguro. Ele foi introduzido em 1976 por Whitfield Diffie e Martin Hellman, pesquisadores da Universidade de Stanford.
+
+A segurança do algoritmo baseia-se no problema matemático do logaritmo discreto, que é considerado computacionalmente difícil de resolver em grupos finitos, como os grupos multiplicativos de inteiros módulo um número primo. Ele utiliza propriedades de exponenciação modular, garantindo que a troca de informações públicas não revele a chave privada (Menezes, Oorschot, Vanstone; p. 515, 1996).
+
+Conforme os próprios autores (Diffie-Hellman, 1976), a função matemática utilizada segue a seguinte lógica:
+
+\textbf{Parâmetros públicos:} dois valores são conhecidos publicamente: um número primo $q$ e uma raiz primitiva $a$ de $q$.
+
+\textbf{Geração das chaves públicas:} o usuário A escolhe um número aleatório privado $X_A$, com $0 < X_A < q$, e calcula a chave pública $Y_A$ como:
+\[
+Y_A = a^{X_A} \mod q
+\]
+O usuário B escolhe um número aleatório privado $X_B$, com $0 < X_B < q$, e calcula a chave pública $Y_B$ como:
+\[
+Y_B = a^{X_B} \mod q
+\]
+
+\textbf{Cálculo da chave secreta compartilhada:}
+
+O usuário A calcula a chave secreta $K$ como:
+\[
+K_A = Y_B^{X_A} \mod q
+\]
+O usuário B calcula a chave secreta $K$ como:
+\[
+K_B = Y_A^{X_B} \mod q
+\]
+Ambos os usuários, A e B, chegam ao mesmo valor para a chave secreta compartilhada, $K_A = K_B$, devido às propriedades da aritmética modular.
+
+A segurança do algoritmo baseia-se na dificuldade de calcular logaritmos discretos. Embora a exponenciação modular seja fácil de calcular, o cálculo inverso (o logaritmo discreto) é considerado computacionalmente difícil, o que garante a segurança do processo. Isso se torna inviável para números grandes. Além disso, sua eficiência reside na dificuldade de ataques conhecidos, como força bruta ou cálculos diretos do logaritmo discreto, quando parâmetros adequados são escolhidos. O Diffie-Hellman é um marco na criptografia moderna, sendo a base para protocolos como o \textit{Transport Layer Security} (TLS) e outros sistemas de criptografia de chave pública.
+
+
+\section{Metodologia}
+A metodologia implementada neste trabalho teve como objetivo a comunicação entre dois arquivos Python, \texttt{sender.py} e \texttt{receive.py}, utilizando o algoritmo de troca de chaves Diffie-Hellman para o estabelecimento de uma chave secreta compartilhada, e o algoritmo de criptografia simétrica DES para garantir a confidencialidade da mensagem. A seguir, são detalhados os métodos de ambos os arquivos e o fluxo de comunicação entre eles.
+
+\subsection{Estrutura Geral do Sistema} 
+A comunicação entre os arquivos é estabelecida através de sockets TCP/IP, em que o arquivo \texttt{sender.py} atua como cliente e o \texttt{receive.py} como servidor. O processo de troca de mensagens envolve três etapas principais: a troca de chaves, utilizando a classe \texttt{DiffieHellman} presente no arquivo \texttt{diffiehellman.py}; a criptografia da mensagem, utilizando a função \texttt{des\_encrypt}, cujo algoritmo está no arquivo \texttt{des.py}, e seus respectivos arrays para permutação e substituição no arquivo \texttt{tables.py}; e, por fim, a descriptografia da mensagem no arquivo \texttt{receive.py}, por meio da função \texttt{des\_decrypt}.
+
+\subsection{Implementação da Troca de Chaves}
+
+A implementação apresentada em Python encapsula o processo de troca de chaves em uma classe chamada \texttt{DiffieHellman}, que permite a geração de chaves privadas e públicas, bem como o cálculo de uma chave secreta compartilhada. Esta classe foi construída para receber dois parâmetros essenciais para o funcionamento do protocolo, que são comuns para o receptor e o emissor:
+
+\begin{itemize}
+    \item \textbf{prime number}: um número primo grande, usado como módulo para as operações exponenciais.
+    \item \textbf{base}: um número inteiro que atua como a base da exponenciação modular.
+\end{itemize}
+
+No construtor da classe (\texttt{\_\_init\_\_}), além de armazenar esses valores citados anteriormente, também são definidos dois atributos adicionais que serão preenchidos posteriormente:
+
+\begin{itemize}
+    \item \textbf{secret key}: um número aleatório secreto gerado para cada usuário.
+    \item \textbf{public key}: valor público calculado a partir da chave secreta.
+\end{itemize}
+
+O método \texttt{generate\_secret\_key} cria um número aleatório que servirá como a chave secreta do participante. Esse número é escolhido dentro do intervalo \texttt{[2, prime\_number - 2]}, garantindo que esteja dentro do domínio adequado para os cálculos modulares subsequentes. Após a geração da chave secreta, o método \texttt{compute\_public\_key} calcula a chave pública utilizando a exponenciação modular através do método \texttt{pow}, interno do Python, utilizando como parâmetros as variáveis \texttt{base}, \texttt{secret\_key} e \texttt{prime\_number}. Este mesmo método é utilizado na função \texttt{compute\_shared\_key}, utilizando a \texttt{public\_key}, \texttt{secret\_key} e o \texttt{prime\_number}.
+
+No momento em que são instanciados os objetos da classe \texttt{DiffieHellman} nas variáveis \texttt{sender} e \texttt{receive} em seus respectivos arquivos, as funções descritas anteriormente são colocadas em uso.
+
+\subsection{Implementação do DES}
+
+O DES foi implementado no arquivo \texttt{des.py}, parte da implementação do algoritmo foi baseada nos passos descritos no livro \textit{Introdução à Criptografia}, escrito por Marcelo Ferreira Zochio (2016). Com fins de organização, os arrays para permutação e substituição foram organizados no arquivo \texttt{tables.py}, quais sejam: \texttt{ip\_table}, \texttt{shift\_schedule}, \texttt{e\_table}, \texttt{p\_table}, \texttt{s\_box}, \texttt{pc1\_table}, \texttt{pc2\_table}, \texttt{ip\_inverse\_table}. Estes são chamados no código de acordo com a necessidade lógica de cada função.
+
+Abaixo é possível observar uma tabela com todas as funções necessárias para operar o DES:
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{|p{0.35\textwidth}|p{0.6\textwidth}|}
+\hline
+\textbf{Função} & \textbf{Descrição} \\
+\hline
+\texttt{hex\_to\_bin(hex\_str)} & Converte uma string hexadecimal para uma string binária. \\
+\texttt{bin\_to\_hex(bin\_str)} & Converte uma string binária para uma string hexadecimal. \\
+\texttt{bin\_to\_dec(binary)} & Converte um número binário para decimal. \\
+\texttt{dec\_to\_bin(num)} & Converte um número decimal para binário, garantindo múltiplos de 4 bits. \\
+\texttt{permute(block, table)} & Reorganiza os bits de um bloco de acordo com uma tabela de permutação. \\
+\texttt{xor(a, b)} & Aplica a operação XOR entre duas strings binárias. \\
+\texttt{left\_shift(key, shifts)} & Realiza um deslocamento à esquerda em uma chave. \\
+\texttt{generate\_keys(key)} & Gera chaves de rodada a partir da chave inicial, utilizando permutações e deslocamentos. \\
+\texttt{des\_process\_block(plaintext\_hex, round\_keys)} & Executa o algoritmo DES em um bloco, aplicando substituições, permutações e XOR com as chaves de rodada. \\
+\texttt{format\_key(key)} & Converte uma chave em string para uma representação binária de 64 bits. \\
+\texttt{des\_encrypt(plaintext\_hex, key)} & Executa a criptografia DES em um bloco de texto usando a chave fornecida. \\
+\texttt{des\_decrypt(ciphertext\_hex, key)} & Executa a descriptografia DES revertendo as rodadas de criptografia. \\
+\hline
+\end{tabular}
+\caption{Descrição das funções do algoritmo DES}
+\end{table}
+
+Para entender o fluxo do algoritmo, partimos da função principal, \texttt{des\_encrypt}, pois é ela que inicia o processo de criptografia de um texto fornecido em formato hexadecimal, juntamente com a chave a ser utilizada. Destacamos que esta função é utilizada no \texttt{sender.py}.
+
+Ao receber estes parâmetros, a \texttt{des\_encrypt} aciona outras funções:
+
+\begin{itemize}
+    \item \textbf{format\_key}: A chave fornecida é inicialmente formatada pela função \texttt{format\_key}, pois esta é um número inteiro, produto do algoritmo de Diffie-Hellman. Sendo assim, ela é convertida de seu formato original para \texttt{string}, posteriormente para hexadecimal, e por fim, para uma representação binária de 64 bits.
+    \item \textbf{generate\_keys}: A chave binária formatada é então passada para a função \texttt{generate\_keys}, que aplica as permutações \texttt{PC1\_TABLE} e \texttt{PC2\_TABLE}, e os deslocamentos definidos por \texttt{SHIFT\_SCHEDULE}, gerando 16 subchaves de 56 bits.
+    \item \textbf{des\_process\_block}: Recebe o bloco de texto e as chaves de rodada, realiza as permutações e substituições de acordo com as tabelas \texttt{IP\_TABLE}, \texttt{E\_TABLE}, \texttt{S\_BOX}, \texttt{P\_TABLE}, e ao final, a \texttt{IP\_INVERSE\_TABLE}.
+    \item \textbf{bin\_to\_hex}: Converte o bloco criptografado final de volta para hexadecimal.
+\end{itemize}
+
+A função \texttt{des\_decrypt} é usada para descriptografar a mensagem no arquivo \texttt{receive.py}. O fluxo e as funções usadas são semelhantes à função \texttt{des\_encrypt}, com a diferença principal sendo a inversão das chaves de rodada com \texttt{[::-1]} no momento da chamada de \texttt{generate\_keys}.
+
+\subsection{Comunicação via Sockets}
+
+Os arquivos \texttt{receive.py} e \texttt{sender.py} são responsáveis por estabelecer a comunicação entre um servidor e um cliente utilizando sockets TCP, e colocar em prática o protocolo Diffie-Hellman para troca de chaves e o algoritmo DES para criptografia de mensagens por meio de suas respectivas funções:
+
+\begin{itemize}
+    \item O \texttt{receive.py} (servidor) cria um socket na porta 12345, aguarda a conexão do cliente e inicia o protocolo Diffie-Hellman para gerar uma chave compartilhada segura. Após receber a chave pública do cliente, ele calcula a chave secreta comum e usa essa chave para descriptografar a mensagem recebida via DES.
+    \item O \texttt{sender.py} (cliente) conecta-se ao servidor via socket e também executa o protocolo Diffie-Hellman, trocando chaves públicas e derivando a mesma chave compartilhada. Ele então criptografa uma mensagem fixa com DES e a envia ao servidor.
+\end{itemize}
+
+A comunicação via sockets permite que ambos os programas troquem dados de forma estruturada, enquanto a troca de chaves Diffie-Hellman garante que a chave de criptografia seja segura sem precisar ser transmitida diretamente.
+
+
+\section{Resultados}
+O algoritmo apresentou os resultados esperados em relação aos processos de encriptação, decriptação e troca de chaves. A comunicação foi estabelecida por meio da troca de mensagens cifradas, utilizando uma chave pública compartilhada para a criptografia das informações.
+
+Ao inicializar o arquivo \texttt{receive.py} no terminal, o sistema entra em estado de espera pela conexão de um cliente na porta pré-definida. Em seguida, o arquivo \texttt{sender.py} é executado em outro terminal, estabelecendo a conexão com a porta designada, o que garante a comunicação entre os dois processos. Durante esse procedimento, ambos os arquivos utilizam números inteiros previamente acordados para gerar a chave pública, armazenando-a em uma variável por meio do protocolo de chaveamento Diffie-Hellman (Figura~1).
+
+Dessa forma, os arquivos \texttt{receive.py} e \texttt{sender.py} compartilham suas chaves públicas e realizam o cálculo da chave compartilhada (Figura~2). Com o canal de comunicação estabelecido, o cliente envia uma mensagem criptografada utilizando o algoritmo implementado no arquivo \texttt{des.py} para o servidor (Figura~3). O servidor, por sua vez, aplica o mesmo algoritmo para realizar a decriptação da mensagem recebida (Figura~4). Após a conclusão da transmissão, os terminais são encerrados imediatamente por meio da finalização dos sockets de comunicação.
+
+\begin{figure}[h]
+    \centering
+    \caption*{Figura 1. Criação das chaves públicas e privadas.}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \caption*{Figura 2. Chave compartilhada que será usada no algoritmo DES.}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \caption*{Figura 3. Mensagem a ser encriptada e chamada da função de encriptação.}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \caption*{Figura 4. Processo de recebimento e de descriptografia por parte do \texttt{receive.py}.}
+\end{figure}
+
+\textbf{Exemplo 1:}
+\begin{itemize}
+    \item Para o primeiro exemplo utilizaram-se os valores de número primo = 23 e base = 432788601367. Os respectivos valores de chave encontrados foram 13, para a chave pública do \texttt{receiver}, 10, para a chave pública do \texttt{sender} e 2 para a chave compartilhada (Figura~5).
+    \item A mensagem a ser criptografada foi “0123456789ABCDDF” (Figura~2).
+    \item O valor encontrado após a criptografia foi “5D9782F4A14D28CF”, que ao ser descriptografado retornou ao seu valor original (Figura~6).
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    \caption*{Figura 5. Valor das chaves.}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \caption*{Figura 6. Mensagem recebida criptografada e descriptografada.}
+\end{figure}
+
+\textbf{Exemplo 2:}
+\begin{itemize}
+    \item Para o segundo exemplo utilizaram-se os valores de número primo = 31 e base = 266463123968. Os respectivos valores de chave encontrados foram 2, para a chave pública do \texttt{receiver}, 2, para a chave pública do \texttt{sender} e 8 para a chave compartilhada (Figura~7).
+    \item A mensagem a ser criptografada foi “0123456789ABCDDF” (Figura~2).
+    \item O valor encontrado após a criptografia foi “5D9782F4A14D28CF”, que ao ser descriptografado retornou ao seu valor original (Figura~8).
+\end{itemize}
+
+\begin{figure}[h]
+    \centering
+    \caption*{Figura 7. Valor das chaves.}
+\end{figure}
+
+\begin{figure}[h]
+    \centering
+    \caption*{Figura 8. Mensagem recebida criptografada e descriptografada.}
+\end{figure}
+
+
+\section{Discussão}
+O algoritmo de troca de chaves Diffie-Hellman, implementado para gerar chaves compartilhadas entre o cliente e o servidor, foi eficaz no estabelecimento de uma comunicação segura. No processo de implementação, um desafio foi garantir a precisão dos cálculos das chaves públicas e secretas entre o `receive.py` e `sender.py`, uma vez que esses valores são fundamentais para a criptografia e decriptação das mensagens. Embora o algoritmo tenha funcionado corretamente, ele, aplicado sozinho, sem a utilização do DES, apresenta vulnerabilidade, pois existe a possibilidade de ataques de *man-in-the-middle* se os dados não forem validados adequadamente, já que as chaves são trocadas publicamente e podem ser interceptadas.
+
+A respeito da implementação do DES, foram enfrentados desafios significativos, especialmente em relação à manipulação dos bits nas funções de permutação e substituição, com a necessidade de adequar o tamanho dos dados em diferentes estágios (64 bits para a entrada e 56 bits para a chave), pois este é um processo complexo que aumenta a chance de erros, especialmente quando se lida com a geração das chaves e a conversão entre formatos binário, hexadecimal e *string*.
+
+Seu uso sem adição de outros algoritmos de segurança de dados pode ser inseguro, pois o mesmo enfrenta limitações, como a vulnerabilidade a ataques de força bruta devido ao tamanho reduzido da chave (56 bits). Para mitigar essas limitações, uma alternativa, caso o objetivo seja continuar utilizando a lógica do DES, seria a utilização do 3DES, uma versão aprimorada do DES que aplica o algoritmo três vezes com diferentes chaves, proporcionando maior resistência a ataques. No entanto, o 3DES também enfrenta desafios, como o aumento do tempo de processamento e a complexidade na manipulação dos dados, dado que a entrada e a chave precisam ser corretamente ajustadas e o algoritmo exige três passagens de criptografia.
+
+Outras melhorias poderiam incluir a substituição do DES pelo *Advanced Encryption Standard* (Padrão Avançado de Criptografia), sendo um algoritmo de criptografia simétrica utilizado mundialmente para proteger dados, que oferece maior segurança e eficiência.
+
+
+\section{Conclusão}
+O uso combinado do algoritmo DES e do protocolo Diffie-Hellman se mostrou uma
+solução eficaz para garantir a segurança em comunicações. O protocolo Diffie-Hellman
+possibilita a troca segura de chaves entre cliente e servidor, permitindo que ambos
+gerem uma chave compartilhada sem transmiti-la diretamente, o que reduz o risco de
+interceptação. A chave compartilhada gerada é então utilizada pelo DES para criptografar
+e descriptografar as mensagens trocadas, garantindo a confidencialidade dos dados.
+Essa combinação oferece uma camada robusta de proteção, pois, mesmo que um atacante
+intercepte a comunicação, ele não teria acesso à chave secreta ou às informações
+criptografadas.
+
+Os testes realizados confirmaram que o sistema cumpre suas funções de troca de
+chaves, criptografia e descriptografia de maneira eficiente, como demonstrado pelo processo
+de inicialização e execução dos scripts `receive.py` e `sender.py`. No entanto, uma
+possível melhoria seria a substituição do DES por algoritmos de criptografia mais modernos,
+como o AES, que oferecem maior segurança contra ataques.
+
+\section{Referências}
+\begin{itemize}
+\item DIFFIE, W.; HELLMAN, M. \textit{New Directions in Cryptography}. IEEE Transactions on Information Theory, 1976.
+\item MENEZES, A. J.; VAN OORSCHOT, P. C.; VANSTONE, S. A. \textit{Handbook of Applied Cryptography}. CRC Press, 1996.
+\item STALLINGS, W. \textit{Criptografia e Segurança de Redes}. Pearson, 2014.
+\item ZOCHIO, M. F. \textit{Introdução à Criptografia}. Novatec, 2016.
+\end{itemize}
+
+\end{document}
